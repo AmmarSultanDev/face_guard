@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.awake</string>
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Path to the Python executable -->
+        <string>/path/to/python3</string>
+        <!-- Path to the awake.py script -->
+        <string>/path/to/face_guard</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/awake.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/awake.err</string>
+</dict>
+</plist>
+
+<!-- Instructions for Placing the plist File on macOS:
+1. Save this content in a file named `com.user.awake.plist`.
+2. Open the terminal and move the `plist` file to the LaunchAgents directory:
+   mv /path/to/com.user.awake.plist ~/Library/LaunchAgents/
+3. Load the `plist` file using the `launchctl` command:
+   launchctl load ~/Library/LaunchAgents/com.user.awake.plist
+4. Verify the service is running:
+   launchctl list | grep com.user.awake
+-->
