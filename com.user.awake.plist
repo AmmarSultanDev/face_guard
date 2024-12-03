@@ -9,7 +9,7 @@
         <!-- Path to the Python executable -->
         <string>/path/to/python3</string>
         <!-- Path to the awake.py script -->
-        <string>/path/to/face_guard</string>
+        <string>/path/to/face_guard/awake.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
