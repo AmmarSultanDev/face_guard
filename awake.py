@@ -3,6 +3,8 @@ import face_recognition
 import os
 import time
 import stat
+import platform
+import subprocess
 
 def lock_screen():
     """Locks the screen based on the OS."""
@@ -122,62 +124,52 @@ def main():
             print("[ERROR] Failed to load new reference face encodings.")
             return
 
-    # Compare new video picture with previous reference pictures
-    print("[INFO] Comparing new video picture with previous reference pictures...")
-    if not check_face(previous_reference_encodings, video_capture):
-        lock_screen()
-        return
-
-    # Take new pictures and make them the new reference
-    print("[INFO] Taking new reference pictures...")
-    new_picture_paths = take_pictures(video_capture, script_dir)
-    new_reference_encodings = load_reference_encodings(new_picture_paths)
-    if new_reference_encodings is None:
-        print("[ERROR] Failed to load new reference face encodings.")
-        return
-
-    print("[INFO] New reference pictures matched successfully.")
-    video_capture.release()
+    print("[INFO] Previous reference pictures loaded successfully.")
 
     mismatch_count = 0
     MAX_CONSECUTIVE_MISMATCHES = 3  # Lock screen after 3 consecutive mismatches
 
-    while True:
-        print("[INFO] Starting face check...")
-        video_capture = cv2.VideoCapture(cam_index)
-        if not video_capture.isOpened():
-            print("[ERROR] Failed to open the built-in camera.")
-            break
-
-        # Add a delay before checking the face
-        time.sleep(2)
-
-        if not check_face(new_reference_encodings, video_capture):
-            mismatch_count += 1
-            print(f"[WARNING] Mismatch count: {mismatch_count}/{MAX_CONSECUTIVE_MISMATCHES}")
-            if mismatch_count >= MAX_CONSECUTIVE_MISMATCHES:
-                lock_screen()
+    try:
+        while True:
+            print("[INFO] Starting face check...")
+            video_capture = cv2.VideoCapture(cam_index)
+            if not video_capture.isOpened():
+                print("[ERROR] Failed to open the built-in camera.")
                 break
 
-            # Wait only 3 seconds after a mismatch
-            print("[INFO] Waiting for 3 seconds before the next mismatch check...")
-            time.sleep(3)
-        else:
-            print("[INFO] Face matched. Resetting mismatch count.")
-            mismatch_count = 0  # Reset mismatch count on successful match
-
+            # Add a delay before checking the face
             time.sleep(2)
 
-            video_capture.release()
+            if not check_face(previous_reference_encodings, video_capture):
+                mismatch_count += 1
+                print(f"[WARNING] Mismatch count: {mismatch_count}/{MAX_CONSECUTIVE_MISMATCHES}")
+                if mismatch_count >= MAX_CONSECUTIVE_MISMATCHES:
+                    lock_screen()
+                    break
 
-            # Wait 12 seconds before the next check after a match
-            print("[INFO] Waiting for 12 seconds before the next check...")
-            time.sleep(check_interval)
+                # Wait only 3 seconds after a mismatch
+                print("[INFO] Waiting for 3 seconds before the next mismatch check...")
+                time.sleep(3)
+            else:
+                print("[INFO] Face matched. Resetting mismatch count.")
+                mismatch_count = 0  # Reset mismatch count on successful match
 
-        time.sleep(2)  # Wait 2 seconds before the next check
+                time.sleep(2)
+
+                video_capture.release()
+
+                # Wait 12 seconds before the next check after a match
+                print("[INFO] Waiting for 12 seconds before the next check...")
+                time.sleep(check_interval)
+
+            time.sleep(2)  # Wait 2 seconds before the next check
+    finally:
+        print("[INFO] Exiting...")
 
 if __name__ == "__main__":
     try:
+        # Use caffeinate to keep the system awake while the script is running
+        subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
         main()
     except Exception as e:
         print(f"[ERROR] An unexpected error occurred: {e}")
