@@ -94,6 +94,15 @@ def load_reference_encodings(picture_paths):
             return None
     return reference_face_encodings
 
+def prevent_idle():
+    """Prevent the screen from going idle by simulating a control key press."""
+    if platform.system() == "Darwin":  # macOS
+        os.system('osascript -e \'tell application "System Events" to key code 59\'')  # 59 is the key code for the control key
+
+def check_user_match(previous_reference_encodings, video_capture):
+    """Check if the current user matches the previous reference."""
+    return check_face(previous_reference_encodings, video_capture)
+
 def main():
     """Main loop for periodic face checking."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -126,6 +135,15 @@ def main():
 
     print("[INFO] Previous reference pictures loaded successfully.")
 
+    # Check if the current user matches the previous reference at the start
+    if check_user_match(previous_reference_encodings, video_capture):
+        print("[INFO] User matched with previous reference. Overriding old reference pictures.")
+        previous_picture_paths = take_pictures(video_capture, script_dir)
+        previous_reference_encodings = load_reference_encodings(previous_picture_paths)
+        if previous_reference_encodings is None:
+            print("[ERROR] Failed to load new reference face encodings.")
+            return
+
     mismatch_count = 0
     MAX_CONSECUTIVE_MISMATCHES = 3  # Lock screen after 3 consecutive mismatches
 
@@ -154,6 +172,9 @@ def main():
                 print("[INFO] Face matched. Resetting mismatch count.")
                 mismatch_count = 0  # Reset mismatch count on successful match
 
+                # Prevent the screen from going idle
+                prevent_idle()
+
                 time.sleep(2)
 
                 video_capture.release()
@@ -168,8 +189,6 @@ def main():
 
 if __name__ == "__main__":
     try:
-        # Use caffeinate to keep the system awake while the script is running
-        subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
         main()
     except Exception as e:
         print(f"[ERROR] An unexpected error occurred: {e}")
