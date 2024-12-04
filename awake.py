@@ -173,6 +173,7 @@ def main():
                 mismatch_count = 0  # Reset mismatch count on successful match
 
                 # Prevent the screen from going idle
+                print("[INFO] Preventing screen from going idle...")
                 prevent_idle()
 
                 time.sleep(2)
