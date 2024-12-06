@@ -5,6 +5,8 @@ import time
 import stat
 import platform
 import subprocess
+from collections import deque
+from datetime import datetime, timedelta
 
 def lock_screen():
     """Locks the screen based on the OS."""
@@ -135,6 +137,9 @@ def main():
 
     print("[INFO] Previous reference pictures loaded successfully.")
 
+    # Flag to indicate if new pictures have been taken and reference updated
+    reference_updated = False
+
     # Check if the current user matches the previous reference at the start
     if check_user_match(previous_reference_encodings, video_capture):
         print("[INFO] User matched with previous reference. Overriding old reference pictures.")
@@ -143,9 +148,14 @@ def main():
         if previous_reference_encodings is None:
             print("[ERROR] Failed to load new reference face encodings.")
             return
+        reference_updated = True
 
+    screen_locked = False
     mismatch_count = 0
     MAX_CONSECUTIVE_MISMATCHES = 3  # Lock screen after 3 consecutive mismatches
+
+    # Track the times when the screen was locked
+    lock_times = deque(maxlen=3)
 
     try:
         while True:
@@ -163,6 +173,8 @@ def main():
                 print(f"[WARNING] Mismatch count: {mismatch_count}/{MAX_CONSECUTIVE_MISMATCHES}")
                 if mismatch_count >= MAX_CONSECUTIVE_MISMATCHES:
                     lock_screen()
+                    screen_locked = True
+                    lock_times.append(datetime.now())
                     break
 
                 # Wait only 3 seconds after a mismatch
@@ -173,7 +185,6 @@ def main():
                 mismatch_count = 0  # Reset mismatch count on successful match
 
                 # Prevent the screen from going idle
-                print("[INFO] Preventing screen from going idle...")
                 prevent_idle()
 
                 time.sleep(2)
@@ -185,6 +196,17 @@ def main():
                 time.sleep(check_interval)
 
             time.sleep(2)  # Wait 2 seconds before the next check
+
+        # If the screen was locked, skip taking new pictures after unlocking
+        if screen_locked:
+            print("[INFO] Screen was locked. Skipping taking new pictures after unlocking.")
+            return
+
+        # Check if the screen was locked three times within a minute
+        if len(lock_times) == 3 and (datetime.now() - lock_times[0]) < timedelta(minutes=1):
+            print("[INFO] Screen was locked three times within a minute. Waiting for 3 minutes before checking again.")
+            time.sleep(3 * 60)  # Wait for 3 minutes
+
     finally:
         print("[INFO] Exiting...")
 
