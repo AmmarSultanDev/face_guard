@@ -39,6 +39,11 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
         print("[ERROR] Failed to capture frame.")
         return False
 
+    # Check if the image is all black
+    if is_image_black(frame):
+        print("[WARNING] Captured image is all black. Switching to the second camera.")
+        return False
+
     # Convert frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_frame)
@@ -60,6 +65,10 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
 
     print("[WARNING] No face match found.")
     return False
+
+def is_image_black(image, threshold=10):
+    """Check if the image is all black."""
+    return cv2.mean(image)[:3] < (threshold, threshold, threshold)
 
 def take_pictures(video_capture, script_dir):
     """Takes three pictures with 5 seconds interval."""
@@ -108,12 +117,8 @@ def check_user_match(previous_reference_encodings, video_capture):
 def main():
     """Main loop for periodic face checking."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    cam_index = 0
+    cam_indices = [0, 1]  # List of camera indices to try
     check_interval = 12  # Check every 12 seconds
-    video_capture = cv2.VideoCapture(cam_index)
-    if not video_capture.isOpened():
-        print("[ERROR] Failed to open the built-in camera.")
-        return
 
     # Ensure the script has write permissions for the directory
     ensure_write_permissions(script_dir)
@@ -129,8 +134,13 @@ def main():
     # Check if the previous reference encodings are existing
     if previous_reference_encodings is None:
         print("[ERROR] No previous reference pictures found. Taking new reference pictures...")
-        previous_picture_paths = take_pictures(video_capture, script_dir)
-        previous_reference_encodings = load_reference_encodings(previous_picture_paths)
+        for cam_index in cam_indices:
+            video_capture = cv2.VideoCapture(cam_index)
+            if video_capture.isOpened():
+                previous_picture_paths = take_pictures(video_capture, script_dir)
+                previous_reference_encodings = load_reference_encodings(previous_picture_paths)
+                if previous_reference_encodings is not None:
+                    break
         if previous_reference_encodings is None:
             print("[ERROR] Failed to load new reference face encodings.")
             return
@@ -141,14 +151,17 @@ def main():
     reference_updated = False
 
     # Check if the current user matches the previous reference at the start
-    if check_user_match(previous_reference_encodings, video_capture):
-        print("[INFO] User matched with previous reference. Overriding old reference pictures.")
-        previous_picture_paths = take_pictures(video_capture, script_dir)
-        previous_reference_encodings = load_reference_encodings(previous_picture_paths)
-        if previous_reference_encodings is None:
-            print("[ERROR] Failed to load new reference face encodings.")
-            return
-        reference_updated = True
+    for cam_index in cam_indices:
+        video_capture = cv2.VideoCapture(cam_index)
+        if video_capture.isOpened() and check_user_match(previous_reference_encodings, video_capture):
+            print("[INFO] User matched with previous reference. Overriding old reference pictures.")
+            previous_picture_paths = take_pictures(video_capture, script_dir)
+            previous_reference_encodings = load_reference_encodings(previous_picture_paths)
+            if previous_reference_encodings is None:
+                print("[ERROR] Failed to load new reference face encodings.")
+                return
+            reference_updated = True
+            break
 
     screen_locked = False
     mismatch_count = 0
@@ -160,9 +173,12 @@ def main():
     try:
         while True:
             print("[INFO] Starting face check...")
-            video_capture = cv2.VideoCapture(cam_index)
+            for cam_index in cam_indices:
+                video_capture = cv2.VideoCapture(cam_index)
+                if video_capture.isOpened():
+                    break
             if not video_capture.isOpened():
-                print("[ERROR] Failed to open the built-in camera.")
+                print("[ERROR] Failed to open any camera.")
                 break
 
             # Add a delay before checking the face
