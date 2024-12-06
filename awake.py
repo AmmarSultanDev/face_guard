@@ -39,11 +39,6 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
         print("[ERROR] Failed to capture frame.")
         return False
 
-    # Check if the image is all black
-    if is_image_black(frame):
-        print("[WARNING] Captured image is all black. Switching to the second camera.")
-        return False
-
     # Convert frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_frame)
@@ -65,10 +60,6 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
 
     print("[WARNING] No face match found.")
     return False
-
-def is_image_black(image, threshold=10):
-    """Check if the image is all black."""
-    return cv2.mean(image)[:3] < (threshold, threshold, threshold)
 
 def take_pictures(video_capture, script_dir):
     """Takes three pictures with 5 seconds interval."""
@@ -173,18 +164,19 @@ def main():
     try:
         while True:
             print("[INFO] Starting face check...")
+            face_detected = False
             for cam_index in cam_indices:
                 video_capture = cv2.VideoCapture(cam_index)
                 if video_capture.isOpened():
-                    break
-            if not video_capture.isOpened():
-                print("[ERROR] Failed to open any camera.")
-                break
-
-            # Add a delay before checking the face
-            time.sleep(2)
-
-            if not check_face(previous_reference_encodings, video_capture):
+                    if check_face(previous_reference_encodings, video_capture):
+                        face_detected = True
+                        break
+                    else:
+                        print(f"[INFO] No face detected with camera {cam_index}. Switching to the next camera.")
+                else:
+                    print(f"[ERROR] Failed to open camera {cam_index}.")
+            
+            if not face_detected:
                 mismatch_count += 1
                 print(f"[WARNING] Mismatch count: {mismatch_count}/{MAX_CONSECUTIVE_MISMATCHES}")
                 if mismatch_count >= MAX_CONSECUTIVE_MISMATCHES:
