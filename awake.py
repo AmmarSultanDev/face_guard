@@ -1,3 +1,4 @@
+import stat
 import cv2
 import face_recognition
 import os
@@ -39,7 +40,7 @@ def ensure_write_permissions(directory):
     """Ensure the script has write permissions for the given directory."""
     if not os.access(directory, os.W_OK):
         try:
-            os.chmod(directory,.S_IWUSR | stat.S_IRUSR | stat.S_IXUSR)
+            os.chmod(directory, stat.S_IWUSR | stat.S_IRUSR | stat.S_IXUSR)
             print(f"[INFO] Write permissions granted for directory: {directory}")
         except Exception as e:
             print(f"[ERROR] Failed to set write permissions for directory: {directory}, {e}")
