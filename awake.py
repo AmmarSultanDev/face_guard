@@ -2,11 +2,24 @@ import cv2
 import face_recognition
 import os
 import time
-import stat
 import platform
-import subprocess
 from collections import deque
 from datetime import datetime, timedelta
+from pynput import mouse, keyboard
+
+# Global variable to track user activity
+last_activity_time = datetime.now()
+
+def on_activity(x=None, y=None):
+    global last_activity_time
+    last_activity_time = datetime.now()
+
+# Set up mouse and keyboard listeners
+mouse_listener = mouse.Listener(on_move=on_activity, on_click=on_activity, on_scroll=on_activity)
+keyboard_listener = keyboard.Listener(on_press=on_activity)
+
+mouse_listener.start()
+keyboard_listener.start()
 
 def lock_screen():
     """Locks the screen based on the OS."""
@@ -26,7 +39,7 @@ def ensure_write_permissions(directory):
     """Ensure the script has write permissions for the given directory."""
     if not os.access(directory, os.W_OK):
         try:
-            os.chmod(directory, stat.S_IWUSR | stat.S_IRUSR | stat.S_IXUSR)
+            os.chmod(directory,.S_IWUSR | stat.S_IRUSR | stat.S_IXUSR)
             print(f"[INFO] Write permissions granted for directory: {directory}")
         except Exception as e:
             print(f"[ERROR] Failed to set write permissions for directory: {directory}, {e}")
@@ -192,8 +205,12 @@ def main():
                 print("[INFO] Face matched. Resetting mismatch count.")
                 mismatch_count = 0  # Reset mismatch count on successful match
 
-                # Prevent the screen from going idle
-                prevent_idle()
+                # Check if there was recent user activity
+                if (datetime.now() - last_activity_time).total_seconds() > 10:
+                    # Prevent the screen from going idle
+                    prevent_idle()
+                else:
+                    print("[INFO] User is active. Skipping prevent idle.")
 
                 time.sleep(2)
 
@@ -211,7 +228,7 @@ def main():
             return
 
         # Check if the screen was locked three times within a minute
-        if len(lock_times) == 3 and (datetime.now() - lock_times[0]) < timedelta(seconds=90):
+        if len(lock_times) == 3 and (datetime.now() - lock_times[0]) < timedelta(minutes=1):
             print("[INFO] Screen was locked three times within a minute. Waiting for 3 minutes before checking again.")
             time.sleep(3 * 60)  # Wait for 3 minutes
 
