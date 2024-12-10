@@ -211,7 +211,7 @@ def main():
             return
 
         # Check if the screen was locked three times within a minute
-        if len(lock_times) == 3 and (datetime.now() - lock_times[0]) < timedelta(minutes=1):
+        if len(lock_times) == 3 and (datetime.now() - lock_times[0]) < timedelta(seconds=90):
             print("[INFO] Screen was locked three times within a minute. Waiting for 3 minutes before checking again.")
             time.sleep(3 * 60)  # Wait for 3 minutes
 
