@@ -1,9 +1,10 @@
-import stat
 import cv2
 import face_recognition
 import os
 import time
+import stat
 import platform
+import subprocess
 from collections import deque
 from datetime import datetime, timedelta
 from pynput import mouse, keyboard
@@ -11,7 +12,7 @@ from pynput import mouse, keyboard
 # Global variable to track user activity
 last_activity_time = datetime.now()
 
-def on_activity(x=None, y=None):
+def on_activity(*args, **kwargs):
     global last_activity_time
     last_activity_time = datetime.now()
 
@@ -53,6 +54,13 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
         print("[ERROR] Failed to capture frame.")
         return False
 
+    # Adjust brightness of the video capture
+    frame = adjust_brightness(frame, value=30)
+
+    # Display the frame for debugging
+    cv2.imshow('Captured Frame', frame)
+    cv2.waitKey(1)
+
     # Convert frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_frame)
@@ -75,12 +83,25 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
     print("[WARNING] No face match found.")
     return False
 
+def adjust_brightness(image, value=30):
+    """Adjust the brightness of an image."""
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+    v = cv2.add(v, value)
+    v[v > 255] = 255
+    v[v < 0] = 0
+    final_hsv = cv2.merge((h, s, v))
+    image = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return image
+
 def take_pictures(video_capture, script_dir):
-    """Takes three pictures with 5 seconds interval."""
+    """Takes three pictures with 5 seconds interval and adjusts brightness."""
     picture_paths = []
     for i in range(1, 4):
         ret, frame = video_capture.read()
         if ret:
+            # Adjust brightness
+            frame = adjust_brightness(frame, value=30)
             image_path = os.path.join(script_dir, f"photo{i}.jpg")
             try:
                 cv2.imwrite(image_path, frame)
@@ -119,14 +140,34 @@ def check_user_match(previous_reference_encodings, video_capture):
     """Check if the current user matches the previous reference."""
     return check_face(previous_reference_encodings, video_capture)
 
+def get_available_cameras():
+    """Detect available cameras."""
+    available_cameras = []
+    index = 0
+    while True:
+        video_capture = cv2.VideoCapture(index)
+        if not video_capture.isOpened():
+            break
+        available_cameras.append(index)
+        video_capture.release()
+        index += 1
+    return available_cameras
+
 def main():
     """Main loop for periodic face checking."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    cam_indices = [0, 1]  # List of camera indices to try
     check_interval = 12  # Check every 12 seconds
 
     # Ensure the script has write permissions for the directory
     ensure_write_permissions(script_dir)
+
+    # Detect available cameras
+    cam_indices = get_available_cameras()
+    if not cam_indices:
+        print("[ERROR] No available cameras found.")
+        return
+
+    print(f"[INFO] Available cameras: {cam_indices}")
 
     # Load previous reference pictures
     previous_picture_paths = [
@@ -235,6 +276,7 @@ def main():
 
     finally:
         print("[INFO] Exiting...")
+        cv2.destroyAllWindows()  # Close all OpenCV windows
 
 if __name__ == "__main__":
     try:
