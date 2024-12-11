@@ -57,10 +57,6 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
     # Adjust brightness of the video capture
     frame = adjust_brightness(frame, value=30)
 
-    # Display the frame for debugging
-    cv2.imshow('Captured Frame', frame)
-    cv2.waitKey(1)
-
     # Convert frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_frame)
