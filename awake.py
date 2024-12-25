@@ -47,6 +47,25 @@ def ensure_write_permissions(directory):
             print(f"[ERROR] Failed to set write permissions for directory: {directory}, {e}")
             exit(1)
 
+def adjust_brightness_contrast(image, brightness=0, contrast=0):
+    """Adjust the brightness and contrast of an image."""
+    if brightness != 0:
+        if brightness > 0:
+            shadow = brightness
+            highlight = 255
+        else:
+            shadow = 0
+            highlight = 255 + brightness
+        alpha_b = (highlight - shadow) / 255
+        gamma_b = shadow
+        image = cv2.addWeighted(image, alpha_b, image, 0, gamma_b)
+    if contrast != 0:
+        f = 131 * (contrast + 127) / (127 * (131 - contrast))
+        alpha_c = f
+        gamma_c = 127 * (1 - f)
+        image = cv2.addWeighted(image, alpha_c, image, 0, gamma_c)
+    return image
+
 def check_face(reference_face_encodings, video_capture, tolerance=1.0):
     """Checks for a face match using the camera."""
     ret, frame = video_capture.read()
@@ -54,8 +73,8 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
         print("[ERROR] Failed to capture frame.")
         return False
 
-    # Adjust brightness of the video capture
-    frame = adjust_brightness(frame, value=30)
+    # Adjust brightness and contrast of the video capture
+    frame = adjust_brightness_contrast(frame, brightness=30, contrast=30)
 
     # Convert frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -79,25 +98,14 @@ def check_face(reference_face_encodings, video_capture, tolerance=1.0):
     print("[WARNING] No face match found.")
     return False
 
-def adjust_brightness(image, value=30):
-    """Adjust the brightness of an image."""
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
-    v = cv2.add(v, value)
-    v[v > 255] = 255
-    v[v < 0] = 0
-    final_hsv = cv2.merge((h, s, v))
-    image = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
-    return image
-
 def take_pictures(video_capture, script_dir):
-    """Takes three pictures with 5 seconds interval and adjusts brightness."""
+    """Takes three pictures with 5 seconds interval and adjusts brightness and contrast."""
     picture_paths = []
     for i in range(1, 4):
         ret, frame = video_capture.read()
         if ret:
-            # Adjust brightness
-            frame = adjust_brightness(frame, value=30)
+            # Adjust brightness and contrast
+            frame = adjust_brightness_contrast(frame, brightness=30, contrast=30)
             image_path = os.path.join(script_dir, f"photo{i}.jpg")
             try:
                 cv2.imwrite(image_path, frame)
@@ -144,7 +152,13 @@ def get_available_cameras():
         video_capture = cv2.VideoCapture(index)
         if not video_capture.isOpened():
             break
-        available_cameras.append(index)
+        # Exclude iPhone camera
+        if platform.system() == "Darwin":
+            camera_name = subprocess.check_output(["system_profiler", "SPCameraDataType"]).decode()
+            if "iPhone" not in camera_name:
+                available_cameras.append(index)
+        else:
+            available_cameras.append(index)
         video_capture.release()
         index += 1
     return available_cameras
